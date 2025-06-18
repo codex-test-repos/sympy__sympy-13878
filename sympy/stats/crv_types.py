@@ -47,9 +47,10 @@ from __future__ import print_function, division
 
 from sympy import (log, sqrt, pi, S, Dummy, Interval, sympify, gamma,
                    Piecewise, And, Eq, binomial, factorial, Sum, floor, Abs,
-                   Lambda, Basic, lowergamma, erf, erfc, I)
+                   Lambda, Basic, lowergamma, uppergamma, erf, erfc, I, asin)
 from sympy import beta as beta_fn
 from sympy import cos, exp, besseli
+from sympy.functions.special.hyper import hyper
 from sympy.stats.crv import (SingleContinuousPSpace, SingleContinuousDistribution,
         ContinuousDistributionHandmade)
 from sympy.stats.rv import _value_check
@@ -152,6 +153,14 @@ class ArcsinDistribution(SingleContinuousDistribution):
 
     def pdf(self, x):
         return 1/(pi*sqrt((x - self.a)*(self.b - x)))
+
+    def _cdf(self, x):
+        a, b = self.a, self.b
+        return Piecewise(
+            (S.Zero, x < a),
+            (2*asin(sqrt((x - a)/(b - a)))/pi, x <= b),
+            (S.One, True)
+        )
 
 def Arcsin(name, a=0, b=1):
     r"""
@@ -670,6 +679,13 @@ class DagumDistribution(SingleContinuousDistribution):
         p, a, b = self.p, self.a, self.b
         return a*p/x*((x/b)**(a*p)/(((x/b)**a + 1)**(p + 1)))
 
+    def _cdf(self, x):
+        p, a, b = self.p, self.a, self.b
+        return Piecewise(
+            (S.Zero, x <= 0),
+            ((1/(1 + (b/x)**a))**p, True)
+        )
+
 
 def Dagum(name, p, a, b):
     r"""
@@ -1042,6 +1058,13 @@ class FrechetDistribution(SingleContinuousDistribution):
         a, s, m = self.a, self.s, self.m
         return a/s * ((x-m)/s)**(-1-a) * exp(-((x-m)/s)**(-a))
 
+    def _cdf(self, x):
+        a, s, m = self.a, self.s, self.m
+        return Piecewise(
+            (S.Zero, x <= m),
+            (exp(-((x - m)/s)**(-a)), True)
+        )
+
 def Frechet(name, a, s=1, m=0):
     r"""
     Create a continuous random variable with a Frechet distribution.
@@ -1107,6 +1130,13 @@ class GammaDistribution(SingleContinuousDistribution):
     def pdf(self, x):
         k, theta = self.k, self.theta
         return x**(k - 1) * exp(-x/theta) / (gamma(k)*theta**k)
+
+    def _cdf(self, x):
+        k, theta = self.k, self.theta
+        return Piecewise(
+            (lowergamma(k, x/theta)/gamma(k), x >= 0),
+            (S.Zero, True)
+        )
 
     def sample(self):
         return random.gammavariate(self.k, self.theta)
@@ -1199,6 +1229,13 @@ class GammaInverseDistribution(SingleContinuousDistribution):
     def pdf(self, x):
         a, b = self.a, self.b
         return b**a/gamma(a) * x**(-a-1) * exp(-b/x)
+
+    def _cdf(self, x):
+        a, b = self.a, self.b
+        return Piecewise(
+            (S.Zero, x <= 0),
+            (uppergamma(a, b/x)/gamma(a), True)
+        )
 
 def GammaInverse(name, a, b):
     r"""
@@ -1385,6 +1422,14 @@ class KumaraswamyDistribution(SingleContinuousDistribution):
         a, b = self.a, self.b
         return a * b * x**(a-1) * (1-x**a)**(b-1)
 
+    def _cdf(self, x):
+        a, b = self.a, self.b
+        return Piecewise(
+            (S.Zero, x <= 0),
+            (1 - (1 - x**a)**b, x < 1),
+            (S.One, True)
+        )
+
 def Kumaraswamy(name, a, b):
     r"""
     Create a Continuous Random Variable with a Kumaraswamy distribution.
@@ -1445,6 +1490,13 @@ class LaplaceDistribution(SingleContinuousDistribution):
         mu, b = self.mu, self.b
         return 1/(2*b)*exp(-Abs(x - mu)/b)
 
+    def _cdf(self, x):
+        mu, b = self.mu, self.b
+        return Piecewise(
+            (S.Half*exp((x - mu)/b), x < mu),
+            (S.One - S.Half*exp(-(x - mu)/b), True)
+        )
+
 
 def Laplace(name, mu, b):
     r"""
@@ -1500,6 +1552,10 @@ class LogisticDistribution(SingleContinuousDistribution):
     def pdf(self, x):
         mu, s = self.mu, self.s
         return exp(-(x - mu)/s)/(s*(1 + exp(-(x - mu)/s))**2)
+
+    def _cdf(self, x):
+        mu, s = self.mu, self.s
+        return 1/(1 + exp(-(x - mu)/s))
 
 
 def Logistic(name, mu, s):
@@ -1710,6 +1766,13 @@ class NakagamiDistribution(SingleContinuousDistribution):
     def pdf(self, x):
         mu, omega = self.mu, self.omega
         return 2*mu**mu/(gamma(mu)*omega**mu)*x**(2*mu - 1)*exp(-mu/omega*x**2)
+
+    def _cdf(self, x):
+        mu, omega = self.mu, self.omega
+        return Piecewise(
+            (lowergamma(mu, mu*x**2/omega)/gamma(mu), x >= 0),
+            (S.Zero, True)
+        )
 
 
 def Nakagami(name, mu, omega):
@@ -2227,6 +2290,10 @@ class StudentTDistribution(SingleContinuousDistribution):
         nu = self.nu
         return 1/(sqrt(nu)*beta_fn(S(1)/2, nu/2))*(1 + x**2/nu)**(-(nu + 1)/2)
 
+    def _cdf(self, x):
+        nu = self.nu
+        return S.Half + x*gamma((nu + 1)/2)/(sqrt(pi*nu)*gamma(nu/2))*hyper([S.Half], [S(3)/2], -x**2/nu)
+
 
 def StudentT(name, nu):
     r"""
@@ -2553,6 +2620,16 @@ class UniformSumDistribution(SingleContinuousDistribution):
         k = Dummy("k")
         return 1/factorial(
             n - 1)*Sum((-1)**k*binomial(n, k)*(x - k)**(n - 1), (k, 0, floor(x)))
+
+    def _cdf(self, x):
+        n = self.n
+        k = Dummy("k")
+        expr = Sum((-1)**k*binomial(n, k)*(x - k)**n, (k, 0, floor(x)))/factorial(n)
+        return Piecewise(
+            (S.Zero, x < 0),
+            (expr, x <= n),
+            (S.One, True)
+        )
 
 
 
