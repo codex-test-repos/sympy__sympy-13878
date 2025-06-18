@@ -13,9 +13,10 @@ from sympy.stats import (P, E, where, density, variance, covariance, skewness,
                          moment, cmoment, smoment)
 
 from sympy import (Symbol, Abs, exp, S, N, pi, simplify, Interval, erf, erfc,
-                   Eq, log, lowergamma, Sum, symbols, sqrt, And, gamma, beta,
-                   Piecewise, Integral, sin, cos, besseli, factorial, binomial,
-                   floor, expand_func, Rational, I)
+                   Eq, log, lowergamma, uppergamma, Sum, symbols, sqrt, And,
+                   gamma, beta, Piecewise, Integral, sin, cos, besseli,
+                   factorial, binomial, floor, expand_func, Rational, I)
+from sympy.functions.special.hyper import hyper
 
 
 from sympy.stats.crv_types import NormalDistribution
@@ -725,6 +726,20 @@ def test_precomputed_cdf():
         compdiff = cdf(X)(x) - simplify(X.pspace.density.compute_cdf()(x))
         compdiff = simplify(compdiff.rewrite(erfc))
         assert compdiff == 0
+
+def test_precomputed_cdf_additional():
+    assert cdf(Arcsin('x', 0, 3))(1) == 2*asin(sqrt(S(1)/3))/pi
+    assert cdf(Dagum('x', S(1)/3, S(1)/5, 2))(3) == (1/(1 + (S(2)/3)**(S(1)/5)))**(S(1)/3)
+    assert cdf(Erlang('x', 1, 1))(1) == 1 - exp(-1)
+    assert cdf(Frechet('x', S(4)/3, 1, 2))(3) == exp(-1)
+    assert cdf(Gamma('x', S(1)/10, 2))(3) == lowergamma(S(1)/10, S(3)/2)/gamma(S(1)/10)
+    assert cdf(GammaInverse('x', S(5)/7, 2))(3) == uppergamma(S(5)/7, S(2)/3)/gamma(S(5)/7)
+    assert cdf(Kumaraswamy('x', S(1)/123, 5))(S(1)/3) == 1 - (1 - (S(1)/3)**(S(1)/123))**5
+    assert cdf(Laplace('x', 2, 3))(5) == 1 - S.Half*exp(-S(1))
+    assert cdf(Logistic('x', 1, S(1)/10))(2) == 1/(1 + exp(-10))
+    assert cdf(Nakagami('x', S(7)/3, 1))(2) == lowergamma(S(7)/3, S(28)/3)/gamma(S(7)/3)
+    assert cdf(StudentT('x', 10))(2) == S.Half + 2*gamma(S(11)/2)/(sqrt(10*pi)*gamma(S(5))) * hyper([S.Half], [S(3)/2], -S(4)/10)
+    assert cdf(UniformSum('x', 5))(2) == Sum((-1)**k*binomial(5,k)*(2 - k)**5, (k,0,2))/factorial(5)
 
 def test_issue_13324():
     X = Uniform('X', 0, 1)
